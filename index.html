@@ -23,12 +23,14 @@ input,select,textarea,button{font-family:inherit}
 <script type="text/babel">
 const C_VEHICLES = [
   {id:1,placa:'ABJ-1583',marca:'BYD',modelo:'Yuan Pro',año:2026,color:'Azul',
-   status:'En reparación',ticket:'TK-2026-0023',tecnico:'Carlos Mendoza',ingreso:'11/01/26',
+   status:'En reparación',ticket:'PSE-1023',tecnico:'Carlos Mendoza',ingreso:'11/01/26',
+   subphase:'Preparado',subopt:['Mecánica — cambio de llanta'],
    trabajos:['Puerta pos RH','Retrovisor RH','Guardafango del LH','Punta del LH','Moldura rueda post LH']},
   {id:2,placa:'PCG-4421',marca:'Toyota',modelo:'Corolla',año:2022,color:'Blanco',
-   status:'Listo para entrega',ticket:'TK-2026-0018',tecnico:'Ana Torres',ingreso:'05/01/26',
+   status:'Listo para entrega',ticket:'PSE-1018',tecnico:'Ana Torres',ingreso:'05/01/26',
    trabajos:['Revisión de frenos','Cambio de aceite y filtro']},
 ];
+const REPAIR_SUBPHASES = ['Desarmado','Enderezado','Preparado','Pintura','Armado','Pulido'];
 const C_PROMOS = [
   {id:1,title:'20% en alineación y balanceo',desc:'Válido hasta 28 Feb 2026',claimed:false},
   {id:2,title:'Diagnóstico gratuito',desc:'Para vehículos nuevos ingresados',claimed:true},
@@ -93,22 +95,63 @@ const HomeScreen = ({vehicles,onSelect}) => (
   <div style={{flex:1,overflowY:'auto'}}>
     <CHeader title="Mis Vehículos"/>
     <div style={{padding:14}}>
-      {vehicles.map(v => (
-        <div key={v.id} onClick={()=>onSelect(v)} style={{background:'white',borderRadius:12,padding:14,marginBottom:10,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',cursor:'pointer',borderLeft:'3px solid #0075de'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-            <div>
-              <div style={{fontSize:14,fontWeight:700,color:'rgba(0,0,0,.95)'}}>{v.marca} {v.modelo}</div>
-              <div style={{fontSize:11,color:'#615d59',marginTop:2}}>Placa: {v.placa} · {v.año} · {v.color}</div>
-              <div style={{fontSize:11,color:'#a39e98'}}>Ticket: {v.ticket}</div>
+      {vehicles.map(v => {
+        const curKey=STATUS_TO_KEY[v.status]||'received';
+        const curIdx=STKEYS.indexOf(curKey);
+        const meta=STS[curKey];
+        const initial=(v.tecnico||'?').trim().charAt(0).toUpperCase();
+        return (
+        <div key={v.id} onClick={()=>onSelect(v)} style={{background:'white',borderRadius:14,marginBottom:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',cursor:'pointer',overflow:'hidden'}}>
+          <div style={{background:'linear-gradient(135deg,#0075de 0%,#0063c1 100%)',padding:'14px 16px',display:'flex',alignItems:'center',gap:12,color:'white',position:'relative'}}>
+            <div style={{position:'absolute',top:-24,right:-24,width:110,height:110,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
+            <div style={{width:44,height:44,background:'rgba(255,255,255,0.18)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0,position:'relative'}}>🚗</div>
+            <div style={{flex:1,position:'relative'}}>
+              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.125px'}}>{v.marca} {v.modelo}</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.78)',marginTop:2}}>{v.año} · {v.color} · {v.ticket}</div>
             </div>
-            <Bdg s={v.status}/>
+            <div style={{background:'rgba(255,255,255,0.22)',borderRadius:6,padding:'5px 10px',fontSize:12,fontWeight:700,letterSpacing:'1.5px',fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',position:'relative'}}>{v.placa}</div>
           </div>
-          <div style={{fontSize:11,color:'#615d59',display:'flex',alignItems:'center',gap:5}}>
-            <div style={{width:5,height:5,borderRadius:'50%',background:'#0075de',flexShrink:0}}/>
-            Técnico: {v.tecnico} · Ingreso: {v.ingreso}
+          <div style={{padding:'12px 16px 14px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <span style={{fontSize:10,fontWeight:700,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.5px'}}>Estado actual</span>
+              <span style={{fontSize:12,fontWeight:600,padding:'4px 10px',borderRadius:9999,color:meta.c,background:meta.bg,letterSpacing:'0.125px'}}>{meta.label}</span>
+            </div>
+            <div style={{display:'flex',alignItems:'flex-start',gap:4,marginBottom:12}}>
+              {STKEYS.map((k,idx)=>{
+                const done=idx<curIdx, cur=idx===curIdx;
+                const m=STS[k];
+                return (
+                  <div key={k} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:5}}>
+                    <div style={{width:'100%',height:4,borderRadius:9999,background:done?m.c:cur?m.c:'#ece8e2',opacity:done?1:cur?1:1}}/>
+                    <div style={{fontSize:8,fontWeight:cur?700:600,color:cur?m.c:done?'#615d59':'#a39e98',textAlign:'center',letterSpacing:'0.125px',lineHeight:1.2}}>{STEPS[idx]}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {v.status==='En reparación'&&v.subphase&&(
+              <div style={{marginBottom:10,padding:'7px 10px',background:'#fff7ed',border:'1px solid rgba(221,91,0,0.15)',borderRadius:9,display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:6,height:6,borderRadius:'50%',background:'#dd5b00',flexShrink:0}}/>
+                <span style={{fontSize:10,fontWeight:700,color:'#dd5b00',textTransform:'uppercase',letterSpacing:'0.5px'}}>Fase</span>
+                <span style={{fontSize:12,fontWeight:700,color:'#8a3300'}}>{v.subphase}</span>
+              </div>
+            )}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,paddingTop:10,borderTop:'1px solid rgba(0,0,0,0.06)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:24,height:24,borderRadius:9999,background:'#f2f9ff',color:'#0075de',fontSize:11,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',letterSpacing:'0.125px'}}>{initial}</div>
+                <div>
+                  <div style={{fontSize:11,color:'#31302e',fontWeight:700,letterSpacing:'-0.0625px'}}>{v.tecnico}</div>
+                  <div style={{fontSize:9,color:'#a39e98',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px'}}>Técnico asignado</div>
+                </div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:11,color:'#31302e',fontWeight:700}}>{v.ingreso}</div>
+                <div style={{fontSize:9,color:'#a39e98',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.5px'}}>Ingreso</div>
+              </div>
+            </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   </div>
 );
@@ -126,7 +169,7 @@ const VehicleDetail = ({v,onBack}) => {
         <div style={{background:'#f2f9ff',border:'1px solid #bfdbfe',borderRadius:9,padding:16,marginBottom:12}}>
           <div style={{fontSize:9,fontWeight:700,color:'#097fe8',textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Estado actual</div>
           <div style={{fontSize:18,fontWeight:800,color:'#31302e',marginBottom:4}}>{v.status}</div>
-          <div style={{fontSize:11,color:'#615d59'}}>Ticket {v.ticket} · Técnico: {v.tecnico}</div>
+          <div style={{fontSize:11,color:'#615d59'}}>Proforma {v.ticket} · Técnico: {v.tecnico}</div>
         </div>
         <div style={{background:'white',borderRadius:12,padding:14,marginBottom:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:14}}>
@@ -172,6 +215,30 @@ const VehicleDetail = ({v,onBack}) => {
               {STEP_HINTS[currentKey]}{nextKey?` Próximo paso: ${STS[nextKey].label}.`:''}
             </div>
           </div>
+          {currentKey==='repair'&&v.subphase&&(()=>{
+            const curIdx=REPAIR_SUBPHASES.indexOf(v.subphase);
+            return (
+              <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(0,0,0,0.06)'}}>
+                <div style={{fontSize:10,fontWeight:700,color:'#dd5b00',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:10}}>Fases de la reparación</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {REPAIR_SUBPHASES.map((sp,idx)=>{
+                    const done=idx<curIdx, cur=idx===curIdx;
+                    return (
+                      <span key={sp} style={{fontSize:11,fontWeight:cur?700:600,padding:'4px 10px',borderRadius:9999,color:cur?'white':done?'#dd5b00':'#a39e98',background:cur?'#dd5b00':done?'#fff7ed':'#f6f5f4',border:done&&!cur?'1px solid rgba(221,91,0,0.2)':'1px solid transparent',letterSpacing:'0.125px'}}>{done?'✓ ':cur?'● ':''}{sp}</span>
+                    );
+                  })}
+                </div>
+                {v.subopt&&v.subopt.length>0&&(
+                  <div style={{marginTop:10,display:'flex',flexWrap:'wrap',gap:6,alignItems:'center'}}>
+                    <span style={{fontSize:10,fontWeight:700,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.5px'}}>Opcional</span>
+                    {v.subopt.map((o,i)=>(
+                      <span key={i} style={{fontSize:11,fontWeight:600,padding:'3px 9px',borderRadius:9999,color:'#31302e',background:'rgba(0,0,0,.06)',letterSpacing:'0.125px'}}>{o}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
         <div style={{background:'white',borderRadius:12,padding:14,marginBottom:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
           <div style={{fontSize:12,fontWeight:600,color:'#615d59',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.125px'}}>Datos del vehículo</div>
@@ -244,20 +311,48 @@ const SiniestroScreen = () => {
 
 const PromosScreen = () => {
   const [pr,spr]=React.useState(C_PROMOS);
+  const THEMES=[
+    {bg:'linear-gradient(135deg,#0075de 0%,#0063c1 100%)',ic:'🏷',accent:'#0075de',accentDark:'#0063c1',tag:'Descuento'},
+    {bg:'linear-gradient(135deg,#dd5b00 0%,#b84a00 100%)',ic:'🔧',accent:'#dd5b00',accentDark:'#b84a00',tag:'Servicio'},
+    {bg:'linear-gradient(135deg,#1aae39 0%,#0f7a29 100%)',ic:'🎁',accent:'#1aae39',accentDark:'#0f7a29',tag:'Combo'},
+  ];
+  const activeCount=pr.filter(p=>!p.claimed).length;
   return (
     <div style={{flex:1,overflowY:'auto'}}>
       <CHeader title="Promociones"/>
       <div style={{padding:14}}>
-        {pr.map(p=>(
-          <div key={p.id} style={{background:'white',borderRadius:12,padding:14,marginBottom:10,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',opacity:p.claimed?.8:1}}>
-            <div style={{fontSize:14,fontWeight:700,color:'rgba(0,0,0,.95)',marginBottom:3}}>{p.title}</div>
-            <div style={{fontSize:11,color:'#615d59',marginBottom:10}}>{p.desc}</div>
-            {p.claimed
-              ? <div style={{fontSize:12,color:'#1aae39',fontWeight:600,background:'#f0fdf4',padding:'4px 10px',borderRadius:9999,display:'inline-block',letterSpacing:'0.125px'}}>✓ Canjeada</div>
-              : <button onClick={()=>spr(pr.map(x=>x.id===p.id?{...x,claimed:true}:x))} style={{background:'#0075de',color:'white',border:'none',borderRadius:4,padding:'7px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>Reclamar promoción</button>
-            }
+        <div style={{background:'#f2f9ff',border:'1px solid #bfdbfe',borderRadius:12,padding:14,marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+          <div style={{fontSize:26}}>🎉</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:700,color:'#097fe8',letterSpacing:'-0.0625px'}}>Promociones para ti</div>
+            <div style={{fontSize:11,color:'#615d59',marginTop:1}}>Aprovecha estos beneficios mientras estén vigentes.</div>
           </div>
-        ))}
+          <span style={{fontSize:11,fontWeight:700,padding:'4px 10px',borderRadius:9999,color:'#097fe8',background:'white',border:'1px solid rgba(9,127,232,0.15)',letterSpacing:'0.125px'}}>{activeCount} activas</span>
+        </div>
+        {pr.map((p,idx)=>{
+          const t=THEMES[idx%THEMES.length];
+          return (
+            <div key={p.id} style={{background:'white',borderRadius:14,overflow:'hidden',marginBottom:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',opacity:p.claimed?.72:1}}>
+              <div style={{background:t.bg,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,color:'white',position:'relative',overflow:'hidden'}}>
+                <div style={{position:'absolute',top:-26,right:-26,width:110,height:110,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
+                <div style={{width:44,height:44,background:'rgba(255,255,255,0.2)',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0,position:'relative'}}>{t.ic}</div>
+                <div style={{flex:1,position:'relative'}}>
+                  <div style={{fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.75px',color:'rgba(255,255,255,0.78)',marginBottom:2}}>{t.tag}</div>
+                  <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.125px',lineHeight:1.3}}>{p.title}</div>
+                </div>
+              </div>
+              <div style={{padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+                <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#615d59',fontWeight:500}}>
+                  <span style={{fontSize:14}}>⏳</span>{p.desc}
+                </div>
+                {p.claimed
+                  ? <span style={{fontSize:12,fontWeight:700,padding:'6px 12px',borderRadius:9999,color:'#0f7a29',background:'#f0fdf4',border:'1px solid rgba(15,122,41,0.2)',letterSpacing:'0.125px'}}>✓ Canjeada</span>
+                  : <button onClick={()=>spr(pr.map(x=>x.id===p.id?{...x,claimed:true}:x))} style={{background:t.accent,color:'white',border:'none',borderRadius:9999,padding:'9px 18px',fontSize:12,fontWeight:700,cursor:'pointer',letterSpacing:'0.125px',boxShadow:`0 4px 12px ${t.accent}33`}}>Reclamar promoción →</button>
+                }
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -266,29 +361,52 @@ const PromosScreen = () => {
 const CuponesScreen = () => {
   const [code,sc]=React.useState('');
   const [st,ss]=React.useState(null);
+  const cupones=[
+    {code:'BIENVENIDO20',desc:'20% descuento primer servicio',vence:'30/03/26',pct:20,accent:'#0075de',accentDark:'#0063c1'},
+    {code:'VERANO15',desc:'15% en servicios de temporada',vence:'28/02/26',pct:15,accent:'#dd5b00',accentDark:'#b84a00'},
+  ];
   return (
     <div style={{flex:1,overflowY:'auto'}}>
       <CHeader title="Cupones"/>
       <div style={{padding:14}}>
-        <div style={{background:'white',borderRadius:12,padding:18,marginBottom:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
-          <div style={{fontSize:13,fontWeight:700,color:'rgba(0,0,0,.95)',marginBottom:4}}>Canjear código</div>
-          <div style={{fontSize:11,color:'#615d59',marginBottom:14}}>Ingresa el código para aplicar tu descuento.</div>
-          <input value={code} onChange={e=>{sc(e.target.value.toUpperCase());ss(null);}} placeholder="Ej. SEAUTO10"
-            style={{width:'100%',padding:'12px',border:`2px solid ${st==='ok'?'#1aae39':st==='err'?'#dc2626':'#dddddd'}`,borderRadius:4,fontSize:16,fontWeight:600,letterSpacing:'2px',textAlign:'center',boxSizing:'border-box',fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',color:'rgba(0,0,0,0.95)',background:'#ffffff',outline:'none'}}/>
-          {st==='ok'&&<div style={{marginTop:6,color:'#1aae39',fontSize:12,fontWeight:600}}>✓ Cupón válido — descuento aplicado</div>}
-          {st==='err'&&<div style={{marginTop:6,color:'#dc2626',fontSize:12,fontWeight:600}}>✗ Código inválido o expirado</div>}
-          <button onClick={()=>ss(['SEAUTO10','BIENVENIDO20','VERANO15'].includes(code)?'ok':'err')}
-            style={{width:'100%',marginTop:12,background:'#0075de',color:'white',border:'none',borderRadius:4,padding:11,fontSize:13,fontWeight:700,cursor:'pointer'}}>Validar cupón</button>
-        </div>
-        <div style={{background:'white',borderRadius:12,padding:14,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
-          <div style={{fontSize:12,fontWeight:600,color:'#615d59',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.125px'}}>Cupones activos</div>
-          {[{code:'BIENVENIDO20',desc:'20% descuento primer servicio',vence:'30/03/26'},{code:'VERANO15',desc:'15% en servicios de temporada',vence:'28/02/26'}].map(c=>(
-            <div key={c.code} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'1px solid rgba(0,0,0,.06)'}}>
-              <div><div style={{fontSize:12,fontWeight:700,color:'#31302e',fontFamily:'monospace'}}>{c.code}</div><div style={{fontSize:11,color:'#615d59'}}>{c.desc}</div></div>
-              <div style={{fontSize:10,color:'#dd5b00',fontWeight:600}}>Vence {c.vence}</div>
+        <div style={{borderRadius:14,padding:'18px 16px',marginBottom:14,background:'linear-gradient(135deg,#0075de 0%,#0063c1 100%)',color:'white',position:'relative',overflow:'hidden',boxShadow:'0 8px 22px rgba(0,117,222,0.28)'}}>
+          <div style={{position:'absolute',top:-30,right:-30,width:120,height:120,borderRadius:'50%',background:'rgba(255,255,255,0.08)'}}/>
+          <div style={{position:'absolute',bottom:-40,left:-30,width:110,height:110,borderRadius:'50%',background:'rgba(255,255,255,0.06)'}}/>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12,position:'relative'}}>
+            <div style={{width:38,height:38,background:'rgba(255,255,255,0.22)',borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>🎟️</div>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,letterSpacing:'-0.125px'}}>¿Tienes un cupón?</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,0.78)'}}>Ingresa el código y disfruta tu descuento</div>
             </div>
-          ))}
+          </div>
+          <input value={code} onChange={e=>{sc(e.target.value.toUpperCase());ss(null);}} placeholder="SEAUTO10"
+            style={{width:'100%',padding:'13px',border:`2px solid ${st==='ok'?'#86efac':st==='err'?'#fca5a5':'rgba(255,255,255,0.35)'}`,borderRadius:8,fontSize:16,fontWeight:700,letterSpacing:'3px',textAlign:'center',boxSizing:'border-box',fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',color:'white',background:'rgba(255,255,255,0.12)',outline:'none'}}/>
+          {st==='ok'&&<div style={{marginTop:8,padding:'7px 10px',background:'rgba(134,239,172,0.18)',borderRadius:6,color:'#dcfce7',fontSize:12,fontWeight:600,display:'flex',alignItems:'center',gap:6}}>✓ Cupón válido — descuento aplicado</div>}
+          {st==='err'&&<div style={{marginTop:8,padding:'7px 10px',background:'rgba(252,165,165,0.18)',borderRadius:6,color:'#fee2e2',fontSize:12,fontWeight:600,display:'flex',alignItems:'center',gap:6}}>✗ Código inválido o expirado</div>}
+          <button onClick={()=>ss(['SEAUTO10','BIENVENIDO20','VERANO15'].includes(code)?'ok':'err')}
+            style={{width:'100%',marginTop:10,background:'white',color:'#0063c1',border:'none',borderRadius:8,padding:12,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:'0.125px'}}>Validar cupón</button>
         </div>
+
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,padding:'0 2px'}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.5px'}}>Cupones activos</div>
+          <div style={{fontSize:10,fontWeight:700,color:'#0075de',background:'#e0f2fe',padding:'3px 8px',borderRadius:9999}}>{cupones.length} disponibles</div>
+        </div>
+
+        {cupones.map(c=>(
+          <div key={c.code} style={{display:'flex',marginBottom:12,borderRadius:12,overflow:'hidden',background:'white',border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',position:'relative'}}>
+            <div style={{width:72,background:`linear-gradient(135deg,${c.accent} 0%,${c.accentDark} 100%)`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'white',padding:'14px 6px',flexShrink:0,position:'relative'}}>
+              <div style={{fontSize:28,fontWeight:800,letterSpacing:'-1px',lineHeight:1}}>{c.pct}</div>
+              <div style={{fontSize:9,fontWeight:700,letterSpacing:'1.5px',marginTop:2,opacity:0.9}}>% OFF</div>
+              <div style={{position:'absolute',top:'50%',right:-6,transform:'translateY(-50%)',width:12,height:12,borderRadius:'50%',background:'white'}}/>
+            </div>
+            <div style={{flex:1,padding:'12px 14px',display:'flex',flexDirection:'column',justifyContent:'center',borderLeft:'2px dashed rgba(0,0,0,0.08)'}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#31302e',fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',letterSpacing:'0.5px'}}>{c.code}</div>
+              <div style={{fontSize:11,color:'#615d59',marginTop:3,lineHeight:1.3}}>{c.desc}</div>
+              <div style={{fontSize:10,color:'#dd5b00',fontWeight:700,marginTop:6,display:'flex',alignItems:'center',gap:4}}>⏳ Vence {c.vence}</div>
+            </div>
+            <button style={{border:'none',background:'transparent',padding:'0 14px',cursor:'pointer',color:c.accent,fontSize:11,fontWeight:700,letterSpacing:'0.5px',textTransform:'uppercase'}}>Usar →</button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -373,12 +491,14 @@ window.ClientApp = ClientApp;
 
 <!-- ═══════════════════════════════════════════════ ADMIN APP ═══ -->
 <script type="text/babel">
+const A_SUBPHASES = ['Desarmado','Enderezado','Preparado','Pintura','Armado','Pulido'];
+const IVA_RATE = 0.15;
 const A_VEH = [
-  {id:1,ticket:'TK-2026-0023',placa:'ABJ-1583',cliente:'Grey Pullice',marca:'BYD',modelo:'Yuan Pro',año:2026,color:'Azul',tecnico:'Carlos Mendoza',status:'En reparación',ingreso:'11/01/26',seguro:'TP',broker:'TP Seguros'},
-  {id:2,ticket:'TK-2026-0024',placa:'PCG-4421',cliente:'Ana Mora',marca:'Toyota',modelo:'Corolla',año:2022,color:'Blanco',tecnico:'Ana Torres',status:'Listo para entrega',ingreso:'12/01/26',seguro:'',broker:''},
-  {id:3,ticket:'TK-2026-0025',placa:'MRT-9012',cliente:'Luis Vega',marca:'Chevrolet',modelo:'Aveo',año:2020,color:'Rojo',tecnico:'—',status:'Recibido',ingreso:'13/01/26',seguro:'AIG',broker:'AIG Ecuador'},
-  {id:4,ticket:'TK-2026-0020',placa:'STZ-2234',cliente:'María Soto',marca:'Hyundai',modelo:'Tucson',año:2023,color:'Gris',tecnico:'Carlos Mendoza',status:'En diagnóstico',ingreso:'08/01/26',seguro:'',broker:''},
-  {id:5,ticket:'TK-2026-0015',placa:'KFP-7751',cliente:'Pedro Alcívar',marca:'Kia',modelo:'Sportage',año:2021,color:'Negro',tecnico:'Ana Torres',status:'Entregado',ingreso:'02/01/26',seguro:'Equinoccial',broker:'Equinoccial'},
+  {id:1,ticket:'PSE-1023',placa:'ABJ-1583',cliente:'Grey Pullice',marca:'BYD',modelo:'Yuan Pro',año:2026,color:'Azul',tecnico:'Carlos Mendoza',status:'En reparación',ingreso:'11/01/26',seguro:'TP',broker:'TP Seguros',subphase:'Preparado',subopt:['Mecánica'],precioTotal:1850,precioMO:720},
+  {id:2,ticket:'PSE-1024',placa:'PCG-4421',cliente:'Ana Mora',marca:'Toyota',modelo:'Corolla',año:2022,color:'Blanco',tecnico:'Ana Torres',status:'Listo para entrega',ingreso:'12/01/26',seguro:'',broker:'',precioTotal:195,precioMO:85},
+  {id:3,ticket:'PSE-1025',placa:'MRT-9012',cliente:'Luis Vega',marca:'Chevrolet',modelo:'Aveo',año:2020,color:'Rojo',tecnico:'—',status:'Recibido',ingreso:'13/01/26',seguro:'AIG',broker:'AIG Ecuador',precioTotal:0,precioMO:0},
+  {id:4,ticket:'PSE-1020',placa:'STZ-2234',cliente:'María Soto',marca:'Hyundai',modelo:'Tucson',año:2023,color:'Gris',tecnico:'Carlos Mendoza',status:'En diagnóstico',ingreso:'08/01/26',seguro:'',broker:'',precioTotal:420,precioMO:150},
+  {id:5,ticket:'PSE-1015',placa:'KFP-7751',cliente:'Pedro Alcívar',marca:'Kia',modelo:'Sportage',año:2021,color:'Negro',tecnico:'Ana Torres',status:'Entregado',ingreso:'02/01/26',seguro:'Equinoccial',broker:'Equinoccial',precioTotal:560,precioMO:220},
 ];
 const BRKRS = [
   {id:1,nombre:'TP Seguros',contacto:'siniestros@tpseguros.com',tel:'02 345-0011',activo:true},
@@ -511,7 +631,7 @@ const AdminDash = ({vehicles}) => {
           <div style={{fontSize:12,color:'#615d59',fontWeight:500}}>Vista consolidada del estado actual</div>
         </div>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-          <thead><tr style={{borderBottom:'1px solid rgba(0,0,0,.08)',background:'#f6f5f4'}}>{['Ticket','Vehículo','Cliente','Técnico','Estado'].map(h=><th key={h} style={{textAlign:'left',padding:'9px 8px',color:'#615d59',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.125px'}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{borderBottom:'1px solid rgba(0,0,0,.08)',background:'#f6f5f4'}}>{['Proforma','Vehículo','Cliente','Técnico','Estado'].map(h=><th key={h} style={{textAlign:'left',padding:'9px 8px',color:'#615d59',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.125px'}}>{h}</th>)}</tr></thead>
           <tbody>
             {vehicles.map(v=>(
               <tr key={v.id} style={{borderBottom:'1px solid #f6f5f4'}}>
@@ -533,18 +653,29 @@ const VehAdmin = ({vehicles,onSC}) => {
   const [flt,sf]=React.useState('');
   const [eid,se]=React.useState(null);
   const [editVal,sev]=React.useState('');
+  const [iva,siva]=React.useState(false);
   const fv=vehicles.filter(v=>!flt||v.placa.toLowerCase().includes(flt.toLowerCase())||v.cliente.toLowerCase().includes(flt.toLowerCase()));
+  const fmt=(n)=>n===0||n==null?'—':`$${(iva?n*(1+IVA_RATE):n).toFixed(2)}`;
   return (
     <div style={{padding:22}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
         <div style={{fontSize:22,fontWeight:700,color:'rgba(0,0,0,.95)',letterSpacing:'-0.25px'}}>Vehículos en taller</div>
         <button style={{background:'#0075de',color:'white',border:'none',borderRadius:4,padding:'7px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ Nuevo ingreso</button>
       </div>
-      <input value={flt} onChange={e=>sf(e.target.value)} placeholder="Buscar por placa o cliente..." style={{width:280,padding:'8px 10px',border:'1px solid #dddddd',borderRadius:4,fontSize:13,marginBottom:14,color:'rgba(0,0,0,0.9)',background:'#ffffff',outline:'none'}}/>
-      <div style={{background:'white',borderRadius:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',overflow:'hidden'}}>
+      <div style={{display:'flex',gap:12,alignItems:'center',marginBottom:14,flexWrap:'wrap'}}>
+        <input value={flt} onChange={e=>sf(e.target.value)} placeholder="Buscar por placa o cliente..." style={{width:280,padding:'8px 10px',border:'1px solid #dddddd',borderRadius:4,fontSize:13,color:'rgba(0,0,0,0.9)',background:'#ffffff',outline:'none'}}/>
+        <button onClick={()=>siva(!iva)} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',borderRadius:9999,border:`1px solid ${iva?'#0075de':'rgba(0,0,0,0.12)'}`,background:iva?'#f2f9ff':'white',color:iva?'#0075de':'#615d59',fontSize:12,fontWeight:600,cursor:'pointer',letterSpacing:'0.125px'}}>
+          <span style={{width:28,height:16,borderRadius:9999,background:iva?'#0075de':'rgba(0,0,0,0.15)',position:'relative',transition:'background .2s',flexShrink:0}}>
+            <span style={{position:'absolute',top:2,left:iva?14:2,width:12,height:12,borderRadius:'50%',background:'white',transition:'left .2s'}}/>
+          </span>
+          Incluir IVA {Math.round(IVA_RATE*100)}%
+        </button>
+        <span style={{fontSize:11,color:'#a39e98',fontWeight:500}}>{iva?'Precios con IVA':'Precios sin IVA'}</span>
+      </div>
+      <div style={{background:'white',borderRadius:12,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px',overflow:'hidden',overflowX:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
           <thead><tr style={{background:'#f6f5f4',borderBottom:'2px solid rgba(0,0,0,.1)'}}>
-            {['Ticket','Placa','Cliente','Vehículo','Broker','Técnico','Estado','Acción'].map(h=><th key={h} style={{textAlign:'left',padding:'10px 12px',color:'#615d59',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.125px'}}>{h}</th>)}
+            {['Proforma','Placa','Cliente','Vehículo','Broker','Técnico','Mano de obra','Precio total','Estado','Acción'].map(h=><th key={h} style={{textAlign:'left',padding:'10px 12px',color:'#615d59',fontWeight:600,fontSize:11,textTransform:'uppercase',letterSpacing:'0.125px'}}>{h}</th>)}
           </tr></thead>
           <tbody>
             {fv.map(v=>(
@@ -555,11 +686,13 @@ const VehAdmin = ({vehicles,onSC}) => {
                 <td style={{padding:'9px 10px',color:'#31302e'}}>{v.marca} {v.modelo} <span style={{color:'#a39e98'}}>· {v.año}</span></td>
                 <td style={{padding:'9px 10px',color:'#615d59'}}>{v.broker||'—'}</td>
                 <td style={{padding:'9px 10px'}}>{v.tecnico}</td>
+                <td style={{padding:'9px 10px',color:'#31302e',fontVariantNumeric:'tabular-nums',fontWeight:600}}>{fmt(v.precioMO)}</td>
+                <td style={{padding:'9px 10px',color:'rgba(0,0,0,.95)',fontVariantNumeric:'tabular-nums',fontWeight:700}}>{fmt(v.precioTotal)}</td>
                 <td style={{padding:'9px 10px'}}>
                   {eid===v.id
                     ? <input value={editVal} onChange={e=>sev(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){onSC(v.id,editVal);se(null);}}} autoFocus
                         style={{fontSize:11,padding:'3px 8px',border:'1px solid #0075de',borderRadius:4,width:160}} placeholder="Escribir estado..."/>
-                    : <ABadge s={v.status}/>
+                    : <><ABadge s={v.status}/>{v.subphase&&<div style={{fontSize:10,color:'#dd5b00',marginTop:3,fontWeight:600,letterSpacing:'0.125px'}}>Fase: {v.subphase}</div>}</>
                   }
                 </td>
                 <td style={{padding:'9px 10px'}}>
@@ -881,12 +1014,13 @@ window.AS = AS;
 
 <!-- ═══════════════════════════════════════════════ TECH APP ═══ -->
 <script type="text/babel">
+const T_SUBPHASES = ['Desarmado','Enderezado','Preparado','Pintura','Armado','Pulido'];
 const T_JOBS = [
-  {id:1,ticket:'TK-2026-0023',placa:'ABJ-1583',cliente:'Grey Pullice',marca:'BYD',modelo:'Yuan Pro',status:'En reparación',pri:'alta',ingreso:'11/01/26',seguro:'TP Seguros',
+  {id:1,ticket:'PSE-1023',placa:'ABJ-1583',cliente:'Grey Pullice',marca:'BYD',modelo:'Yuan Pro',status:'En reparación',pri:'alta',ingreso:'11/01/26',seguro:'TP Seguros',subphase:'Preparado',subopt:['Mecánica'],
    trabajos:[{id:1,t:'Puerta pos RH',ok:true},{id:2,t:'Retrovisor RH',ok:false},{id:3,t:'Guardafango del LH',ok:false},{id:4,t:'Punta del LH',ok:false}]},
-  {id:2,ticket:'TK-2026-0025',placa:'MRT-9012',cliente:'Luis Vega',marca:'Chevrolet',modelo:'Aveo',status:'Valorar siniestro',pri:'alta',ingreso:'13/01/26',seguro:'AIG Ecuador',
+  {id:2,ticket:'PSE-1025',placa:'MRT-9012',cliente:'Luis Vega',marca:'Chevrolet',modelo:'Aveo',status:'Valorar siniestro',pri:'alta',ingreso:'13/01/26',seguro:'AIG Ecuador',
    trabajos:[{id:1,t:'Valorización pendiente',ok:false}]},
-  {id:3,ticket:'TK-2026-0024',placa:'PCG-4421',cliente:'Ana Mora',marca:'Toyota',modelo:'Corolla',status:'En diagnóstico',pri:'media',ingreso:'12/01/26',seguro:'',
+  {id:3,ticket:'PSE-1024',placa:'PCG-4421',cliente:'Ana Mora',marca:'Toyota',modelo:'Corolla',status:'En diagnóstico',pri:'media',ingreso:'12/01/26',seguro:'',
    trabajos:[{id:1,t:'Revisión completa',ok:false}]},
 ];
 const TS = {repair:{label:'En reparación',c:'#dd5b00',bg:'#fff7ed'},siniestro:{label:'Valorar siniestro',c:'#391c57',bg:'#f1ecf7'},diagnosis:{label:'Diagnóstico',c:'#0075de',bg:'#f2f9ff'},ready:{label:'Listo',c:'#1aae39',bg:'#f0fdf4'}};
@@ -933,7 +1067,7 @@ const MisTrabajos = ({jobs,onSel}) => {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10,marginBottom:18}}>
             <div>
               <div style={{fontSize:11,fontWeight:700,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.125px',marginBottom:6}}>Agenda del taller</div>
-              <div style={{fontSize:14,color:'#615d59',lineHeight:1.45}}>Carga operativa del turno con acceso directo a los tickets en curso.</div>
+              <div style={{fontSize:14,color:'#615d59',lineHeight:1.45}}>Carga operativa del turno con acceso directo a las proformas en curso.</div>
             </div>
             <span style={{fontSize:12,fontWeight:600,padding:'4px 8px',borderRadius:9999,color:'#097fe8',background:'#f2f9ff',whiteSpace:'nowrap',letterSpacing:'0.125px'}}>Turno activo</span>
           </div>
@@ -955,7 +1089,7 @@ const MisTrabajos = ({jobs,onSel}) => {
         <div style={{background:'#fff7ed',borderRadius:16,padding:18,border:'1px solid rgba(221,91,0,.16)',boxShadow:'rgba(0,0,0,0.03) 0px 4px 14px'}}>
           <div style={{fontSize:11,fontWeight:700,color:'#dd5b00',textTransform:'uppercase',letterSpacing:'0.125px',marginBottom:8}}>Urgencias</div>
           <div style={{fontSize:46,fontWeight:700,color:'#8a3300',letterSpacing:'-1.25px',lineHeight:1}}>{urgent.length}</div>
-          <div style={{fontSize:13,color:'#8a3300',marginTop:8,lineHeight:1.45}}>Tickets que necesitan atención prioritaria antes de cerrar el turno.</div>
+          <div style={{fontSize:13,color:'#8a3300',marginTop:8,lineHeight:1.45}}>Proformas que necesitan atención prioritaria antes de cerrar el turno.</div>
           <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:8}}>
             {urgent.map(j=>(
               <div key={j.id} style={{padding:'8px 10px',borderRadius:12,background:'rgba(255,255,255,.72)'}}>
@@ -1000,9 +1134,12 @@ const MisTrabajos = ({jobs,onSel}) => {
 
 const DetalleJob = ({job,onBack}) => {
   const [ts,sts]=React.useState(job.trabajos);
+  const [curSub,scs]=React.useState(job.subphase||'');
+  const [opts,so]=React.useState(job.subopt||[]);
   const toggle=(id)=>sts(ts.map(t=>t.id===id?{...t,ok:!t.ok}:t));
   const s=TS[job.status]||TS.diagnosis;
   const done=ts.filter(t=>t.ok).length; const total=ts.length;
+  const curSubIdx=T_SUBPHASES.indexOf(curSub);
   return (
     <div style={{padding:22}}>
       <button onClick={onBack} style={{background:'none',border:'none',color:'#0075de',cursor:'pointer',fontSize:12,fontWeight:600,padding:0,marginBottom:14,display:'flex',alignItems:'center',gap:4}}>← Volver a mis trabajos</button>
@@ -1013,7 +1150,7 @@ const DetalleJob = ({job,onBack}) => {
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
         <div style={{background:'white',borderRadius:12,padding:18,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
           <div style={{fontSize:12,fontWeight:600,color:'#615d59',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.125px'}}>Datos del vehículo</div>
-          {[['Ticket',job.ticket],['Placa',job.placa],['Vehículo',`${job.marca} ${job.modelo}`],['Cliente',job.cliente],['Ingreso',job.ingreso],['Seguro',job.seguro||'Sin seguro']].map(([k,v])=>(
+          {[['Proforma',job.ticket],['Placa',job.placa],['Vehículo',`${job.marca} ${job.modelo}`],['Cliente',job.cliente],['Ingreso',job.ingreso],['Seguro',job.seguro||'Sin seguro']].map(([k,v])=>(
             <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid rgba(0,0,0,.06)',fontSize:12}}>
               <span style={{color:'#615d59'}}>{k}</span><span style={{fontWeight:600,color:'rgba(0,0,0,.95)'}}>{v}</span>
             </div>
@@ -1040,40 +1177,107 @@ const DetalleJob = ({job,onBack}) => {
           </div>
         </div>
       </div>
+      {job.status==='En reparación'&&(
+        <div style={{background:'white',borderRadius:12,padding:18,marginTop:16,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14,gap:12,flexWrap:'wrap'}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:'#dd5b00',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:4}}>Fases de la reparación</div>
+              <div style={{fontSize:13,color:'#615d59',lineHeight:1.45}}>Avanza la fase conforme progresa el trabajo en el taller.</div>
+            </div>
+            {curSub&&<span style={{fontSize:12,fontWeight:600,padding:'4px 10px',borderRadius:9999,color:'white',background:'#dd5b00',whiteSpace:'nowrap',letterSpacing:'0.125px'}}>● {curSub}</span>}
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {T_SUBPHASES.map((sp,idx)=>{
+              const done=idx<curSubIdx, cur=idx===curSubIdx;
+              return (
+                <button key={sp} onClick={()=>scs(sp)} style={{fontSize:12,fontWeight:cur?700:600,padding:'6px 12px',borderRadius:9999,color:cur?'white':done?'#dd5b00':'#615d59',background:cur?'#dd5b00':done?'#fff7ed':'#f6f5f4',border:`1px solid ${cur?'#dd5b00':done?'rgba(221,91,0,0.2)':'rgba(0,0,0,0.06)'}`,cursor:'pointer',letterSpacing:'0.125px'}}>{done?'✓ ':cur?'● ':''}{sp}</button>
+              );
+            })}
+          </div>
+          <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(0,0,0,0.06)'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:8}}>Opcional (mecánica / eléctrica)</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {['Mecánica','Eléctrica','Llantas / aros'].map(o=>{
+                const on=opts.includes(o);
+                return (
+                  <button key={o} onClick={()=>so(on?opts.filter(x=>x!==o):[...opts,o])} style={{fontSize:11,fontWeight:600,padding:'5px 10px',borderRadius:9999,color:on?'#31302e':'#615d59',background:on?'rgba(0,0,0,.06)':'white',border:`1px solid ${on?'rgba(0,0,0,0.15)':'rgba(0,0,0,0.08)'}`,cursor:'pointer',letterSpacing:'0.125px'}}>{on?'✓ ':'+ '}{o}</button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 const SinValoracion = () => {
-  const [photos,sp]=React.useState([{id:1,lb:'Frente izquierdo'},{id:2,lb:'Lateral LH'},{id:3,lb:'Detalle puerta'}]);
+  const REQ_ANGLES=[
+    {k:'fd34',lb:'3/4 Frontal Derecho'},
+    {k:'fi34',lb:'3/4 Frontal Izquierdo'},
+    {k:'td34',lb:'3/4 Trasero Derecho'},
+    {k:'ti34',lb:'3/4 Trasero Izquierdo'},
+    {k:'front',lb:'Frontal'},
+    {k:'back',lb:'Trasera'},
+  ];
+  const [shots,ssh]=React.useState({});
+  const [extras,sex]=React.useState([]);
+  const [km,skm]=React.useState('');
+  const [vin,svin]=React.useState('');
   const [items,si]=React.useState([{id:1,desc:'Guardafango del LH',tipo:'Pintura',precio:95},{id:2,desc:'Punta del LH',tipo:'Enderezado',precio:110}]);
   const upd=(id,k,v)=>si(items.map(it=>it.id===id?{...it,[k]:v}:it));
   const sub=items.reduce((s,i)=>s+(parseFloat(i.precio)||0),0);
   const ti={padding:'6px 8px',border:'1px solid #dddddd',borderRadius:4,fontSize:13,fontFamily:'Inter,-apple-system,system-ui,sans-serif',width:'100%',boxSizing:'border-box',color:'rgba(0,0,0,0.9)',background:'#ffffff',outline:'none',fontWeight:400};
+  const filledCount=REQ_ANGLES.filter(a=>shots[a.k]).length;
+  const allReady=filledCount===REQ_ANGLES.length;
   return (
     <div style={{padding:22}}>
       <div style={{fontSize:22,fontWeight:700,color:'rgba(0,0,0,.95)',letterSpacing:'-0.25px',marginBottom:8}}>Valorización de Siniestro</div>
-      <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:7,padding:10,marginBottom:18,fontSize:12,color:'#8a3300'}}>📋 Revisa las fotos del cliente y completa la estimación de costos.</div>
+      <div style={{background:'#fff7ed',border:'1px solid #fed7aa',borderRadius:7,padding:10,marginBottom:18,fontSize:12,color:'#8a3300'}}>📋 Captura mínimo 6 fotos (cuatro ángulos 3/4 + frontal + trasera), kilometraje y VIN para la valorización.</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:18}}>
         <div>
           <div style={{background:'white',borderRadius:12,padding:16,marginBottom:14,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
-            <div style={{fontSize:12,fontWeight:600,color:'#615d59',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.125px'}}>Fotos del cliente</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              {photos.map(p=>(
-                <div key={p.id} style={{aspectRatio:'4/3',background:'rgba(0,0,0,.1)',borderRadius:6,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',fontSize:10,color:'#615d59',fontFamily:'monospace',textAlign:'center',gap:4,padding:6}}>
-                  <span style={{fontSize:20}}>📷</span>{p.lb}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12,gap:10,flexWrap:'wrap'}}>
+              <div style={{fontSize:12,fontWeight:600,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.125px'}}>Fotos requeridas del vehículo</div>
+              <span style={{fontSize:12,fontWeight:600,padding:'4px 10px',borderRadius:9999,color:allReady?'#0f7a29':'#8a3300',background:allReady?'#f0fdf4':'#fff7ed',letterSpacing:'0.125px',whiteSpace:'nowrap'}}>{filledCount}/{REQ_ANGLES.length} capturadas</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+              {REQ_ANGLES.map(a=>{
+                const on=!!shots[a.k];
+                return (
+                  <div key={a.k} onClick={()=>ssh({...shots,[a.k]:on?null:Date.now()})} style={{aspectRatio:'4/3',background:on?'#31302e':'rgba(0,0,0,.04)',borderRadius:8,border:`1px solid ${on?'#31302e':'rgba(0,0,0,0.12)'}`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',fontSize:10,color:on?'white':'#615d59',textAlign:'center',gap:4,padding:6,cursor:'pointer',position:'relative'}}>
+                    <span style={{fontSize:20}}>{on?'✓':'📷'}</span>
+                    <span style={{fontWeight:600,letterSpacing:'0.125px',lineHeight:1.2}}>{a.lb}</span>
+                    {on&&<span style={{position:'absolute',top:4,right:6,fontSize:9,fontWeight:700,color:'rgba(255,255,255,.6)',letterSpacing:'0.125px'}}>LISTA</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid rgba(0,0,0,0.06)'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#615d59',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:8}}>Fotos adicionales (detalles del daño)</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                {extras.map((p,i)=>(
+                  <div key={p} style={{aspectRatio:'4/3',background:'rgba(0,0,0,.08)',borderRadius:8,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',fontSize:10,color:'#615d59',textAlign:'center',gap:4,padding:6}}>
+                    <span style={{fontSize:18}}>📷</span>Detalle {i+1}
+                  </div>
+                ))}
+                <div onClick={()=>sex([...extras,Date.now()])} style={{aspectRatio:'4/3',border:'2px dashed rgba(0,0,0,.2)',borderRadius:8,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#a39e98',fontSize:12,gap:4}}>
+                  <span style={{fontSize:18}}>+</span><span style={{fontWeight:600}}>Agregar</span>
                 </div>
-              ))}
-              <div onClick={()=>sp([...photos,{id:Date.now(),lb:'Nueva foto'}])} style={{aspectRatio:'4/3',border:'2px dashed rgba(0,0,0,.2)',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#a39e98',fontSize:12}}>+ foto</div>
+              </div>
             </div>
           </div>
           <div style={{background:'white',borderRadius:12,padding:16,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
-            <div style={{fontSize:12,fontWeight:600,color:'#615d59',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.125px'}}>DATOS DEL SINIESTRO</div>
-            {[['Ticket','TK-2026-0025'],['Placa','MRT-9012'],['Cliente','Luis Vega'],['Seguro','AIG Ecuador'],['Fecha reporte','13/01/26']].map(([k,v])=>(
+            <div style={{fontSize:12,fontWeight:600,color:'#615d59',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.125px'}}>Datos del siniestro</div>
+            {[['Proforma','PSE-1025'],['Placa','MRT-9012'],['Cliente','Luis Vega'],['Seguro','AIG Ecuador'],['Fecha reporte','13/01/26']].map(([k,v])=>(
               <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'5px 0',borderBottom:'1px solid rgba(0,0,0,.06)',fontSize:11}}>
                 <span style={{color:'#615d59'}}>{k}</span><span style={{fontWeight:600}}>{v}</span>
               </div>
             ))}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:12}}>
+              <div><label style={{fontSize:11,fontWeight:600,color:'#615d59',display:'block',marginBottom:4,letterSpacing:'0.125px'}}>Kilometraje</label><input value={km} onChange={e=>skm(e.target.value)} placeholder="0 km" style={ti}/></div>
+              <div><label style={{fontSize:11,fontWeight:600,color:'#615d59',display:'block',marginBottom:4,letterSpacing:'0.125px'}}>VIN</label><input value={vin} onChange={e=>svin(e.target.value)} placeholder="17 caracteres" maxLength={17} style={{...ti,fontFamily:'ui-monospace,SFMono-Regular,Menlo,monospace',textTransform:'uppercase'}}/></div>
+            </div>
           </div>
         </div>
         <div>
@@ -1103,8 +1307,9 @@ const SinValoracion = () => {
           </div>
           <div style={{display:'flex',gap:8}}>
             <button style={{flex:1,background:'white',color:'#31302e',border:'1px solid rgba(0,0,0,.1)',borderRadius:4,padding:11,fontSize:12,fontWeight:600,cursor:'pointer'}}>Guardar borrador</button>
-            <button style={{flex:1,background:'#0075de',color:'white',border:'none',borderRadius:4,padding:11,fontSize:12,fontWeight:700,cursor:'pointer'}}>Enviar valorización</button>
+            <button disabled={!allReady||!km||!vin} style={{flex:1,background:allReady&&km&&vin?'#0075de':'rgba(0,0,0,0.15)',color:'white',border:'none',borderRadius:4,padding:11,fontSize:12,fontWeight:700,cursor:allReady&&km&&vin?'pointer':'not-allowed'}}>Enviar valorización</button>
           </div>
+          {(!allReady||!km||!vin)&&<div style={{marginTop:8,fontSize:11,color:'#8a3300',lineHeight:1.5}}>{!allReady?`Faltan ${REQ_ANGLES.length-filledCount} fotos requeridas. `:''}{!km?'Ingresa el kilometraje. ':''}{!vin?'Ingresa el VIN.':''}</div>}
         </div>
       </div>
     </div>
@@ -1263,10 +1468,10 @@ const AMVehDet = ({v,onBack}) => {
       <div style={{padding:14}}>
         <div style={{background:s.bg,border:`1px solid ${s.c}30`,borderRadius:8,padding:10,marginBottom:12,display:'flex',gap:8,alignItems:'center'}}>
           <div style={{width:8,height:8,borderRadius:'50%',background:s.c,flexShrink:0}}/>
-          <div><div style={{fontSize:12,fontWeight:700,color:s.c}}>{s.label}</div><div style={{fontSize:11,color:'#615d59'}}>Ticket {v.ticket}</div></div>
+          <div><div style={{fontSize:12,fontWeight:700,color:s.c}}>{s.label}</div><div style={{fontSize:11,color:'#615d59'}}>Proforma {v.ticket}</div></div>
         </div>
         <div style={{background:'white',borderRadius:12,padding:14,border:'1px solid rgba(0,0,0,0.08)',boxShadow:'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.84688px, rgba(0,0,0,0.02) 0px 0.8px 2.925px, rgba(0,0,0,0.01) 0px 0.175px 1.04062px'}}>
-          {[['Placa',v.placa],['Vehículo',`${v.marca} ${v.modelo}`],['Año',v.año],['Color',v.color],['Cliente',v.cliente],['Técnico',v.tecnico],['Ingreso',v.ingreso],['Broker',v.broker||'—'],['Seguro',v.seguro||'—']].map(([k,val])=>(
+          {[['Placa',v.placa],['Vehículo',`${v.marca} ${v.modelo}`],['Año',v.año],['Color',v.color],['Cliente',v.cliente],['Técnico',v.tecnico],['Ingreso',v.ingreso],['Broker',v.broker||'—'],['Seguro',v.seguro||'—'],...(v.subphase?[['Fase reparación',v.subphase]]:[]),...(v.precioMO?[['Mano de obra',`$${v.precioMO.toFixed(2)}`]]:[]),...(v.precioTotal?[['Precio total (sin IVA)',`$${v.precioTotal.toFixed(2)}`],['Precio total (con IVA)',`$${(v.precioTotal*1.15).toFixed(2)}`]]:[])].map(([k,val])=>(
             <div key={k} style={{display:'flex',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid rgba(0,0,0,.06)',fontSize:12}}>
               <span style={{color:'#615d59'}}>{k}</span><span style={{fontWeight:600,color:'rgba(0,0,0,.95)'}}>{val}</span>
             </div>
